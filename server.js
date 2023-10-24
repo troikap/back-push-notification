@@ -9,15 +9,11 @@ const serviceAccount = require('./firesbase.json');
 //     "publicKey": "BFBEdXOwCUCOMxr4sGpPRrefIBd2SYx4XLgx8Tfyih-wd2ozVfO6OsKAH1s_pgFbrA1AtTlk05E02Qcy1rxI3s0",
 //     "privateKey": "QQEacVAb3JzyfXVZJx2AsR2poohZPX_LNbSV0kveymI",
 // }
-
-let tokens = [];
-
 app.use(bodyParser.urlencoded({ extended: false }))
-
 app.use(bodyParser.json())
-
 app.use(cors());
 
+let tokens = [];
 
 // webpush.setVapidDetails(
 //     'mailto:example@yourdomain.org',
@@ -43,7 +39,7 @@ app.use(cors());
 // }
 
 saveToken = (req, res) => {
-    console.log('req body', req.body);
+    console.log('saveToken req body', req.body);
     if (req.body?.token) {
         const tokenFinded = tokens.find(element => element.token == req.body.token);
         if (tokenFinded) {
@@ -59,7 +55,8 @@ saveToken = (req, res) => {
         }
         const payload = {
             token: req.body.token,
-            user: req.body.user || `Usuario Nº ${tokens.length}`
+            user: req.body.user || `Usuario Nº ${tokens.length}`,
+            device: req.body.device
         }
         tokens.push(payload);
         res.send({
@@ -74,51 +71,60 @@ saveToken = (req, res) => {
 }
 
 getToken = (req, res) => {
-    console.log('TOKEN ', tokens);
-    res.send({
+    const response = {
         data: tokens,
         message: 'Debes guardar estos datos en tu BASE de DATOS'
-    })
+    }
+    res.json(response);
+}
+
+getHello = (req, res) => {
+    console.log('LLEGOOOOOO HOLAAAAAAAAAAa');
+    const response = {
+      mensaje: 'Esta es la información que deseas obtener.'
+    };
+    res.json(response);
 }
 
 sendPushNotificationFirebase = async (req, res) => {
     const {tokens, title, message, image} = req.body;
-    const payload = {
-        notification: {
+    let payload = { token: '' }
+    if (image) {
+        payload['data'] = {
+            title: title+' data'  || 'Título de la notificación',
+            body: message+' data' || 'Cuerpo de la notificación',
+            image,
+        };
+        payload['notification'] = {
+            title: title+' notification' || 'Título de la notificación',
+            body: message+' notification'  || 'Cuerpo de la notificación',
+            imageUrl: image
+
+        }
+    } else {
+        payload['notification'] = {
             title: title || 'Título de la notificación',
             body: message || 'Cuerpo de la notificación',
-            image: image || 'null',
-        },
-        apns: {
-            payload: {
-                aps: {
-                    'mutable-content': 1
-                }
-            },
-            fcm_options: {
-                image: image || 'null',
-            }
-        },
-        webpush: {
-            headers: {
-                image: image || 'null',
-            }
-        },
-        data: {
-            image: image || '',
-        },
-        token: '', // El token del dispositivo receptor
-    };
-    if (image) {
-        payload['android'] = {notification: {
-            imageUrl: image,
-            image: image
-        }}
+        }
     }
     let responseMessage = null;
-    console.log('payload: ', payload);
     for( let tokenIndex in tokens) {
         payload.token = tokens[tokenIndex].token;
+        if (tokens[tokenIndex].device == 'ios') {
+            // payload['topic'] = 'push-ios';
+        }
+        if (tokens[tokenIndex].device == 'android') {
+            // payload['topic'] = 'push-android';
+            !payload['android'] && (payload['android'] = {});
+            payload['android']['notification'] = {
+                icon: 'stock_ticker_update',
+                color: '#7e55c3',
+            }
+            if (image) {
+                payload['android']['notification']['imageUrl'] = image;
+            }
+        }
+        console.log('payload: ', payload);
         await admin.messaging().send(payload)
         .then((response) => {
             console.log('Notificación push enviada con éxito:', response);
@@ -141,18 +147,6 @@ sendPushNotificationFirebase = async (req, res) => {
         }
     }
 }
-
-app.route('/api/send-push-notification-firebase').post(sendPushNotificationFirebase);
-app.route('/api/tokens').post(saveToken);
-app.route('/api/tokens').get(getToken);
-
-app.get('/api/hello', (req, res) => {
-    console.log('LLEGOOOOOO HOLAAAAAAAAAAa');
-    const informacion = {
-      mensaje: 'Esta es la información que deseas obtener.'
-    };
-    res.json(informacion);
-});
 
 // const notificationPayload = {
 //     "notification": {
@@ -178,13 +172,15 @@ app.get('/api/hello', (req, res) => {
 //     console.log('ERROR ', err);
 // })
 
-
-
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  // Otras opciones, si es necesario
 });
 
 const httpServer = app.listen(9000, () => {
     console.log("HTTP Server running at http://localhost:" + httpServer.address().port)
 })
+
+app.route('/api/send-push-notification-firebase').post(sendPushNotificationFirebase);
+app.route('/api/tokens').post(saveToken);
+app.route('/api/tokens').get(getToken);
+app.route('/api/hello').get(getHello)
