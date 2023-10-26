@@ -5,38 +5,12 @@ const bodyParser = require('body-parser');
 const app = express();
 const admin = require('firebase-admin');
 const serviceAccount = require('./firesbase.json');
-// const vapidKeys = {
-//     "publicKey": "BFBEdXOwCUCOMxr4sGpPRrefIBd2SYx4XLgx8Tfyih-wd2ozVfO6OsKAH1s_pgFbrA1AtTlk05E02Qcy1rxI3s0",
-//     "privateKey": "QQEacVAb3JzyfXVZJx2AsR2poohZPX_LNbSV0kveymI",
-// }
+
 app.use(bodyParser.urlencoded({ extended: false }))
 app.use(bodyParser.json())
 app.use(cors());
 
 let tokens = [];
-
-// webpush.setVapidDetails(
-//     'mailto:example@yourdomain.org',
-//     vapidKeys.publicKey,
-//     vapidKeys.privateKey,
-// )
-
-// const enviarNotificacion = (req, res) => {
-//     const pushSubscription = { 
-//         endpoint: DataTransfer.tokens.endpoint,
-//         keys: {
-//             auth: DataTransfer.tokens.keys.auth,
-//             p256dh: DataTransfer.tokens.keys.p256dh
-//         }
-//     }
-//     const payload = this.notificationPayload;
-//     webpush.sendNotification(pushSubscription, JSON.stringify(payload))
-//     .then( res => {
-//         console.log('ENVIADO...........');
-//     }).catch( err => {
-//         console.log('ERROR ', err);
-//     })
-// }
 
 saveToken = (req, res) => {
     console.log('saveToken req body', req.body);
@@ -91,13 +65,13 @@ sendPushNotificationFirebase = async (req, res) => {
     let payload = { token: '' }
     if (image) {
         payload['data'] = {
-            title: title+' data'  || 'Título de la notificación',
-            body: message+' data' || 'Cuerpo de la notificación',
+            title: title+' [data]'  || 'Título de la notificación',
+            body: message+' [data]' || 'Cuerpo de la notificación',
             image,
         };
         payload['notification'] = {
-            title: title+' notification' || 'Título de la notificación',
-            body: message+' notification'  || 'Cuerpo de la notificación',
+            title: title+' [notification]' || 'Título de la notificación',
+            body: message+' [notification]'  || 'Cuerpo de la notificación',
             imageUrl: image
 
         }
@@ -109,18 +83,14 @@ sendPushNotificationFirebase = async (req, res) => {
     }
     let responseMessage = null;
     for( let tokenIndex in tokens) {
-        payload.token = tokens[tokenIndex].token;
+        payload.token = tokens[tokenIndex].token?.value || tokens[tokenIndex].token;
         if (tokens[tokenIndex].device == 'ios') {
             // payload['topic'] = 'push-ios';
         }
         if (tokens[tokenIndex].device == 'android') {
             // payload['topic'] = 'push-android';
-            !payload['android'] && (payload['android'] = {});
-            payload['android']['notification'] = {
-                icon: 'stock_ticker_update',
-                color: '#7e55c3',
-            }
             if (image) {
+                !payload['android'] && (payload['android'] = {'notification': {}});
                 payload['android']['notification']['imageUrl'] = image;
             }
         }
@@ -148,39 +118,15 @@ sendPushNotificationFirebase = async (req, res) => {
     }
 }
 
-// const notificationPayload = {
-//     "notification": {
-//         "title": "SALUDOS SSSS ",
-//         "body": "PUSH NOTIFICACIONES ENVIADAS",
-//         "vibrate": [100, 50, 100],
-//         "image": "https://img.freepik.com/psd-gratis/icono-3d-animales-acuaticos_23-2150049501.jpg",
-//         "data": {
-//             "dataOfArrival": Date.now(),
-//             "primaryKey": 1
-//         },
-//         "actions": [{
-//             "action": "explore",
-//             "title": "Go to the site"
-//         }]
-//     }
-// }
-
-// webpush.sendNotification(pushSubscription, JSON.stringify(notificationPayload))
-// .then( res => {
-//     console.log('ENVIADO...........');
-// }).catch( err => {
-//     console.log('ERROR ', err);
-// })
-
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
-
-const httpServer = app.listen(9000, () => {
-    console.log("HTTP Server running at http://localhost:" + httpServer.address().port)
-})
 
 app.route('/api/send-push-notification-firebase').post(sendPushNotificationFirebase);
 app.route('/api/tokens').post(saveToken);
 app.route('/api/tokens').get(getToken);
 app.route('/api/hello').get(getHello)
+
+const httpServer = app.listen(9000, () => {
+    console.log("HTTP Server running at http://localhost:" + httpServer.address().port)
+})
