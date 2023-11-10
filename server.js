@@ -65,20 +65,25 @@ sendPushNotificationFirebase = async (req, res) => {
     let payload = { token: '' }
     if (image) {
         payload['data'] = {
-            title: title+' [data]'  || 'Título de la notificación',
-            body: message+' [data]' || 'Cuerpo de la notificación',
+            title: title,
+            body: message,
             image,
+            'notification-type': `NOT-IMG`, 
+            'notification-value': `${title} - ${message}`
         };
         payload['notification'] = {
-            title: title+' [notification]' || 'Título de la notificación',
-            body: message+' [notification]'  || 'Cuerpo de la notificación',
+            title: title,
+            body: message,
             imageUrl: image
-
         }
     } else {
+        payload['data'] = { 
+            'notification-type': `NOT`, 
+            'notification-value': `${title} - ${message}`
+        }
         payload['notification'] = {
-            title: title || 'Título de la notificación',
-            body: message || 'Cuerpo de la notificación',
+            title: title,
+            body: message,
         }
     }
     let responseMessage = null;
@@ -89,10 +94,10 @@ sendPushNotificationFirebase = async (req, res) => {
         }
         if (tokens[tokenIndex].device == 'android') {
             // payload['topic'] = 'push-android';
-            if (image) {
-                !payload['android'] && (payload['android'] = {'notification': {}});
-                payload['android']['notification']['imageUrl'] = image;
-            }
+            // if (image) {
+            //     !payload['android'] && (payload['android'] = {'notification': {}});
+            //     payload['android']['notification']['imageUrl'] = image;
+            // }
         }
         console.log('payload: ', payload);
         await admin.messaging().send(payload)
